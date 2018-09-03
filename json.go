@@ -26,17 +26,14 @@ func ReadJSON(path string, obj interface{}) error {
 
 // WriteJSON - Turn the object into json then save it to the file ...
 func WriteJSON(path string, obj interface{}) error {
-
 	// JSONify
 	jbytes, err := json.Marshal(obj)
 	if err != nil {
 		return fmt.Errorf("SaveJSON failed (%s) error (%v)", path, err)
 	}
-
 	err = ioutil.WriteFile(path, jbytes, 0755)
 	if err != nil {
 		return fmt.Errorf("SaveJSON write file failed (%s) error (%v)", path, err)
 	}
-
 	return nil
 }
