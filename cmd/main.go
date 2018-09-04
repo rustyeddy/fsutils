@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
@@ -39,24 +40,30 @@ func main() {
 	// Create the size channel to report file sizes, simply gather
 	// sizes and total them (also count the number of files)
 	sizeChan := make(chan int64)
+	var n sync.WaitGroup
 
-	// Create go routines to walk each of the root filesystems
-	// That have been provided on the command line.  NOTE: we are
-	// calling the loop in a go routine, allowing us to drop past
-	// the loop. However, the go routine still incures the delay
-	// of each write in the loop.
+	// Create go routines for all roots provided from the
+	for _, root := range roots {
+		n.Add(1)
+		go walkDir(root, &n, sizeChan)
+	}
+
+	// Wait for all walk functions to complete then
+	// close the sizeChan
 	go func() {
-		for _, root := range roots {
-			walkDir(root, sizeChan)
-		}
+		n.Wait()
 		close(sizeChan)
 	}()
 
+	// Create the tick chan, the channel will effectively
+	// be ignored if verbosity is off.
 	var tick <-chan time.Time
 	if *verbose {
 		tick = time.Tick(500 * time.Millisecond)
 	}
 
+	// Loop until the sizeChan is closed. The break out of
+	// the loop
 	var stats Stats
 loop:
 	for {
@@ -71,19 +78,30 @@ loop:
 			printUsage(stats)
 		}
 	}
+	// The final Print usage
+	fmt.Printf("Total of ")
+	printUsage(stats)
 }
 
 func printUsage(s Stats) {
-	fmt.Printf("%d files - %.1f GB\n ", s.Files, float64(s.TotalSize)/1e9)
+	fmt.Printf("%d files at %.1f GB\n ", s.Files, float64(s.TotalSize)/1e9)
 }
 
 // walkDir does a recursive walk down a directory, sending
 // filesizes over the sizeChan channel.
-func walkDir(path string, sizeChan chan<- int64) {
+func walkDir(path string, n *sync.WaitGroup, sizeChan chan<- int64) {
+
+	// Make sure our wait group is decremented before this
+	// function returns
+	defer n.Done()
+
+	// Loop each entry and create more subdir searches.  Making
+	// sure the waitgroup is updated properly
 	for _, entry := range Dirlist(path) {
 		if entry.IsDir() {
+			n.Add(1)
 			subdir := filepath.Join(path, entry.Name())
-			walkDir(subdir, sizeChan)
+			go walkDir(subdir, n, sizeChan)
 		} else {
 			sizeChan <- entry.Size()
 		}
