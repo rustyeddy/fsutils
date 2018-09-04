@@ -22,20 +22,14 @@ var (
 	glob    = flag.Bool("glob", true, "Treat match as a glob (*.go, ..) ")
 	pattern = flag.String("pattern", "", "Match this pattern regexp or glob")
 	verbose = flag.Bool("verbose", false, "Print progress and other stuff")
+
+	format = flag.String("format", "text", "Output format text, JSON ... ")
 )
 
 func main() {
 	flag.Parse()
 
-	// Set the root file-systems for this this search
-	roots := flag.Args()
-	if len(roots) == 0 {
-		// We could default to this directory. or Fail
-		// fmt.Fprintf(os.Stderr, "Need arguments to proceed ... ")
-
-		// We will default to the local directory
-		roots = []string{"."}
-	}
+	roots := getRootDirs(flag.Args())
 
 	// Create the size channel to report file sizes, simply gather
 	// sizes and total them (also count the number of files)
@@ -55,12 +49,10 @@ func main() {
 		close(fiChan)
 	}()
 
-	// Create the tick chan, the channel will effectively
-	// be ignored if verbosity is off.
-	var tick <-chan time.Time
-	if *verbose {
-		tick = time.Tick(500 * time.Millisecond)
-	}
+	// Create a ticker to update the user of progress.  Verbose
+	// if true will cause the ticker to emit the scan summary
+	// at that point.
+	tick := fsutils.CreateTicker(500*time.Millisecond, *verbose)
 
 	// Loop until the sizeChan is closed. The break out of
 	// the loop
@@ -81,6 +73,18 @@ loop:
 	// The final Print usage
 	fmt.Printf("Total of ")
 	printUsage(stats)
+}
+
+// getRootDirs will default to current directory
+func getRootDirs(d []string) (roots []string) {
+	roots = flag.Args()
+	if len(roots) == 0 {
+		// We could default to this directory. or Fail
+		// fmt.Fprintf(os.Stderr, "Need arguments to proceed ... ")
+		// We will default to the local directory
+		roots = []string{"."}
+	}
+	return roots
 }
 
 func printUsage(s Stats) {
