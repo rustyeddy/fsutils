@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -38,20 +39,20 @@ func main() {
 
 	// Create the size channel to report file sizes, simply gather
 	// sizes and total them (also count the number of files)
-	sizeChan := make(chan int64)
+	fiChan := make(chan os.FileInfo)
 	var n sync.WaitGroup
 
 	// Create go routines for all roots provided from the
 	for _, root := range roots {
 		n.Add(1)
-		go fsutils.WalkDir(root, &n, sizeChan)
+		go fsutils.WalkDir(root, &n, fiChan)
 	}
 
 	// Wait for all walk functions to complete then
 	// close the sizeChan
 	go func() {
 		n.Wait()
-		close(sizeChan)
+		close(fiChan)
 	}()
 
 	// Create the tick chan, the channel will effectively
@@ -67,12 +68,12 @@ func main() {
 loop:
 	for {
 		select {
-		case size, ok := <-sizeChan:
+		case fi, ok := <-fiChan:
 			if !ok {
 				break loop // sizeChan was closed ...
 			}
 			stats.Files++
-			stats.TotalSize += size
+			stats.TotalSize += fi.Size()
 		case <-tick:
 			printUsage(stats)
 		}

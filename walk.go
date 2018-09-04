@@ -2,6 +2,7 @@ package fsutils
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"sync"
 )
@@ -10,7 +11,7 @@ func p(s string) { fmt.Println(s) }
 
 // WalkDir does a recursive walk down a directory, sending
 // filesizes over the sizeChan channel.
-func WalkDir(path string, n *sync.WaitGroup, sizeChan chan<- int64) {
+func WalkDir(path string, n *sync.WaitGroup, fiChan chan<- os.FileInfo) {
 
 	// Make sure our wait group is decremented before this
 	// function returns
@@ -22,16 +23,9 @@ func WalkDir(path string, n *sync.WaitGroup, sizeChan chan<- int64) {
 		if entry.IsDir() {
 			n.Add(1)
 			subdir := filepath.Join(path, entry.Name())
-			go WalkDir(subdir, n, sizeChan)
+			go WalkDir(subdir, n, fiChan)
 		} else {
-			sizeChan <- entry.Size()
+			fiChan <- entry
 		}
 	}
 }
-
-// WalkDir does a recursive walk of a filesystem sending
-// FileInfo back on the given channel.
-/*
-func WalkDirChan(path string, n *sync.WaitGroup, fileChan chan<- os.FileInof) {
-}
-*/
