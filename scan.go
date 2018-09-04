@@ -10,12 +10,10 @@ import (
 // Scan this path and write an error if something goes wrong
 func Scan(path string) {
 
-	chfi := make(chan os.FileInfo)
-	chdir := make(chan os.FileInfo)
-
+	//chfi := make(chan os.FileInfo)
+	//chdir := make(chan os.FileInfo)
 	//go func() { chdir <- os.Args[1:] }()
-
-	doDirectories(path, chfi, chdir)
+	//doDirectories(path, chfi, chdir)
 
 }
 

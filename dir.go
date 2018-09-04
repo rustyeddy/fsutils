@@ -1,6 +1,8 @@
 package fsutils
 
-import "os"
+import (
+	"os"
+)
 
 // Directory represents a directory
 type Directory struct {

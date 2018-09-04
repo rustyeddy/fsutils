@@ -3,11 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/rustyeddy/fsutils"
 )
 
 type Stats struct {
@@ -45,7 +44,7 @@ func main() {
 	// Create go routines for all roots provided from the
 	for _, root := range roots {
 		n.Add(1)
-		go walkDir(root, &n, sizeChan)
+		go fsutils.WalkDir(root, &n, sizeChan)
 	}
 
 	// Wait for all walk functions to complete then
@@ -85,74 +84,4 @@ loop:
 
 func printUsage(s Stats) {
 	fmt.Printf("%d files at %.1f GB\n ", s.Files, float64(s.TotalSize)/1e9)
-}
-
-// walkDir does a recursive walk down a directory, sending
-// filesizes over the sizeChan channel.
-func walkDir(path string, n *sync.WaitGroup, sizeChan chan<- int64) {
-
-	// Make sure our wait group is decremented before this
-	// function returns
-	defer n.Done()
-
-	// Loop each entry and create more subdir searches.  Making
-	// sure the waitgroup is updated properly
-	for _, entry := range Dirlist(path) {
-		if entry.IsDir() {
-			n.Add(1)
-			subdir := filepath.Join(path, entry.Name())
-			go walkDir(subdir, n, sizeChan)
-		} else {
-			sizeChan <- entry.Size()
-		}
-	}
-}
-
-// GetSortedEntries takes a path string and returns three arrays
-// (lists) of: regular files, directories and other (pipes, perm denied, etc.)
-func GetSortedDirlist(path string) (files, dirs, other []os.FileInfo) {
-	entries := Dirlist(path)
-	if entries == nil {
-		return nil, nil, nil
-	}
-	f, d, o := SortDirlist(entries)
-	return f, d, o
-}
-
-// GetEntries converts a path string to an []os.FileInfo each FileInfo
-// represents one the the "paths" children.  They can be files,
-// [sub]Directories or "other" dependending on the respective file type.
-// Directories may be used for deeper search (or not), files may be
-// used to information gathering, translation, copy, move or delte, etc.
-func Dirlist(path string) (entries []os.FileInfo) {
-	var err error
-	entries, err = ioutil.ReadDir(path)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "walkDir failed to read %s %v\n", path, err)
-		return nil
-	}
-	return entries
-}
-
-// SortDirlist walks through the entire directory list, identifies
-// each entry as a: file, dir or other grouping them in the
-// appropriate list.
-func SortDirlist(dirlist []os.FileInfo) (files, dirs, other []os.FileInfo) {
-	for _, fi := range dirlist {
-		mode := fi.Mode()
-		fmt.Printf("\n mode %+v \n", mode)
-		switch {
-		case mode.IsDir():
-			fmt.Printf("  dir: %s\n", fi.Name())
-			dirs = append(dirs, fi) // Could send to a new channel?
-		case mode.IsRegular():
-			fmt.Printf("  reg: %s\n", fi.Name())
-			files = append(files, fi)
-		default:
-			// TODO ~ Categorize the "other" category with a map?
-			other = append(other, fi)
-			fmt.Printf(" Other: %s perms or ? %+v\n", fi.Name(), mode)
-		}
-	}
-	return files, dirs, other
 }
