@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 type Stats struct {
@@ -16,9 +17,10 @@ type Stats struct {
 }
 
 var (
-	pattern = flag.String("pattern", "", "Match this pattern regexp or glob")
-	glob    = flag.Bool("glob", true, "Treat match as a glob (*.go, ..) ")
 	action  = flag.String("action", "scan", "Actions to perform on dir")
+	glob    = flag.Bool("glob", true, "Treat match as a glob (*.go, ..) ")
+	pattern = flag.String("pattern", "", "Match this pattern regexp or glob")
+	verbose = flag.Bool("verbose", false, "Print progress and other stuff")
 )
 
 func main() {
@@ -34,7 +36,8 @@ func main() {
 		roots = []string{"."}
 	}
 
-	// Create the size channel to report sizes
+	// Create the size channel to report file sizes, simply gather
+	// sizes and total them (also count the number of files)
 	sizeChan := make(chan int64)
 
 	// Create go routines to walk each of the root filesystems
@@ -49,13 +52,25 @@ func main() {
 		close(sizeChan)
 	}()
 
-	// Print the results
-	var stats Stats
-	for size := range sizeChan {
-		stats.Files++
-		stats.TotalSize += size
+	var tick <-chan time.Time
+	if *verbose {
+		tick = time.Tick(500 * time.Millisecond)
 	}
-	printUsage(stats)
+
+	var stats Stats
+loop:
+	for {
+		select {
+		case size, ok := <-sizeChan:
+			if !ok {
+				break loop // sizeChan was closed ...
+			}
+			stats.Files++
+			stats.TotalSize += size
+		case <-tick:
+			printUsage(stats)
+		}
+	}
 }
 
 func printUsage(s Stats) {
@@ -93,10 +108,9 @@ func GetSortedDirlist(path string) (files, dirs, other []os.FileInfo) {
 // used to information gathering, translation, copy, move or delte, etc.
 func Dirlist(path string) (entries []os.FileInfo) {
 	var err error
-
 	entries, err = ioutil.ReadDir(path)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "waskDir failed to read %s %v\n", path, err)
+		fmt.Fprintf(os.Stderr, "walkDir failed to read %s %v\n", path, err)
 		return nil
 	}
 	return entries
