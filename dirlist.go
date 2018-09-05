@@ -58,18 +58,14 @@ func Dirlist(path string) (entries []os.FileInfo) {
 func SortDirlist(dirlist []os.FileInfo) (files, dirs, other []os.FileInfo) {
 	for _, fi := range dirlist {
 		mode := fi.Mode()
-		fmt.Printf("\n mode %+v \n", mode)
 		switch {
 		case mode.IsDir():
-			fmt.Printf("  dir: %s\n", fi.Name())
 			dirs = append(dirs, fi) // Could send to a new channel?
 		case mode.IsRegular():
-			fmt.Printf("  reg: %s\n", fi.Name())
 			files = append(files, fi)
 		default:
 			// TODO ~ Categorize the "other" category with a map?
 			other = append(other, fi)
-			fmt.Printf(" Other: %s perms or ? %+v\n", fi.Name(), mode)
 		}
 	}
 	return files, dirs, other

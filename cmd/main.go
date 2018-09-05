@@ -56,7 +56,7 @@ func main() {
 
 	// Loop until the sizeChan is closed. The break out of
 	// the loop
-	var stats Stats
+	var stats fsutils.Stats
 loop:
 	for {
 		select {
@@ -64,15 +64,13 @@ loop:
 			if !ok {
 				break loop // sizeChan was closed ...
 			}
-			stats.Files++
-			stats.TotalSize += fi.Size()
+			stats.Update(fi)
 		case <-tick:
-			printUsage(stats)
+			fmt.Println(stats.String())
 		}
 	}
 	// The final Print usage
-	fmt.Printf("Total of ")
-	printUsage(stats)
+	fmt.Printf("Total of %s\n", stats.String())
 }
 
 // getRootDirs will default to current directory
@@ -85,8 +83,4 @@ func getRootDirs(d []string) (roots []string) {
 		roots = []string{"."}
 	}
 	return roots
-}
-
-func printUsage(s Stats) {
-	fmt.Printf("%d files at %.1f GB\n ", s.Files, float64(s.TotalSize)/1e9)
 }

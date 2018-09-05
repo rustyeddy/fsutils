@@ -1,16 +1,30 @@
 package fsutils
 
+import (
+	"fmt"
+	"os"
+)
+
 // Keep Some Status along the way
-type FileStats struct {
-	Basedir     string
-	TotalCount  int
-	FileCount   int
-	DirCount    int
-	Unknown     int
-	LocalSize   int64 // Just files in this directory
-	SubdirsSize int64 // Size of all subdirs combined (not this dir)
+type Stats struct {
+	Basedir   string
+	Files     int
+	Dirs      int
+	Other     int
+	LocalSize int64 // Just files in this directory
+	TotalSize int64 // Size of local and subdirs
 }
 
-func (fs *FileStats) TotalSize() int64 {
-	return fs.LocalSize + fs.SubdirsSize
+func (s *Stats) String() string {
+	return fmt.Sprintf("%d files at %.1f GB\n ", s.Files, float64(s.TotalSize)/1e9)
+}
+
+// UpdateStats
+func (s *Stats) Update(fi os.FileInfo) {
+	s.Files++
+	s.TotalSize += fi.Size()
+}
+
+func (s *Stats) Collect(fich <-chan os.FileInfo) {
+	//
 }

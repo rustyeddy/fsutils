@@ -1,13 +1,25 @@
 package fsutils
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
 )
 
-func p(s string) { fmt.Println(s) }
+type Walker struct {
+	Basedir  string
+	FileChan chan os.FileInfo
+	Stats
+}
+
+// NewWalker will create a new directory walker for the given path
+func NewWalker(path string) *Walker {
+	w := &Walker{
+		Basedir:  path,
+		FileChan: make(chan os.FileInfo),
+	}
+	return w
+}
 
 // WalkDir does a recursive walk down a directory, sending
 // filesizes over the sizeChan channel.
