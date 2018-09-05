@@ -1,14 +1,22 @@
 package fsutils
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
+	"sync"
 )
+
+type ReadErrors sync.Map
+
+// Add a read error for later printing
+func (re ReadErrors) Add(path string, err error) {
+	//re[path] = err
+}
 
 var (
 	MaxConcurrentDirs int // max con
 	CountingSemaphore chan struct{}
+	readErrors        ReadErrors
 )
 
 // Create our semaphore based on number of concurrent dirs
@@ -19,7 +27,8 @@ func init() {
 }
 
 // GetSortedEntries takes a path string and returns three arrays
-// (lists) of: regular files, directories and other (pipes, perm denied, etc.)
+// (lists) of: regular files, directories and other (pipes, perm
+// denied, etc.)
 func GetSortedDirlist(path string) (files, dirs, other []os.FileInfo) {
 	entries := Dirlist(path)
 	if entries == nil {
@@ -31,9 +40,10 @@ func GetSortedDirlist(path string) (files, dirs, other []os.FileInfo) {
 
 // GetEntries converts a path string to an []os.FileInfo each FileInfo
 // represents one the the "paths" children.  They can be files,
-// [sub]Directories or "other" dependending on the respective file type.
-// Directories may be used for deeper search (or not), files may be
-// used to information gathering, translation, copy, move or delte, etc.
+// [sub]Directories or "other" dependending on the respective file
+// type.  Directories may be used for deeper search (or not), files
+// may be used to information gathering, translation, copy, move or
+// delte, etc.
 func Dirlist(path string) (entries []os.FileInfo) {
 	var err error
 	if CountingSemaphore == nil {
@@ -46,7 +56,7 @@ func Dirlist(path string) (entries []os.FileInfo) {
 
 	entries, err = ioutil.ReadDir(path)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "walkDir failed to read %s %v\n", path, err)
+		// readErrors.Add(path, err)
 		return nil
 	}
 	return entries
