@@ -20,16 +20,20 @@ type Walker struct {
 	DirChan chan string
 	Tick    <-chan time.Time
 
+	Visit Visitor
+
 	UseDirChan bool
 	*Logerr
 }
 
-func P(str string) {
-	fmt.Println(str)
-}
+// Visitor will accept an incoming File, it will also produce an
+// outgoing file, unless an error has occured, then error is sent
+// to the Error Channel
+type Visitor func(fin *File) (fout *File)
 
 func (w *Walker) String() string {
-	return fmt.Sprintf("roots %v files %d size %d\n", w.Roots, w.Files, w.TotalSize)
+	return fmt.Sprintf("roots %v files %d size %d\n",
+		w.Roots, w.Files, w.TotalSize)
 }
 
 // NewWalker will create a new directory walker for the given path
@@ -65,20 +69,15 @@ func (w *Walker) WalkDir(path string) {
 	for _, entry := range Dirlist(path) {
 		if entry.IsDir() {
 			subdir := filepath.Join(path, entry.Name())
-
 			if w.UseDirChan {
 				go func() {
-					P("  chan <- dir " + subdir)
 					w.DirChan <- subdir // Do not block writting to channel
 				}()
-
 			} else {
-				P("  walkDir " + subdir)
 				w.Add(1)
 				go w.WalkDir(subdir)
 			}
 		} else {
-			P(" chan <- file " + entry.Name())
 			w.FiChan <- entry
 		}
 	}
@@ -104,9 +103,9 @@ func (w *Walker) StartWalking() {
 	// Wait for all walk functions to complete then close the
 	// sizeChan, when everything completes we will.
 	go func() {
-		P("  Waiting for the wait group ")
+		w.Infoln("  waiting for all walkers to finish ")
 		w.Wait()
-		P("  Closing File and Directory Channels ")
+		w.Infoln("  walkers finished, closing file and dir channels")
 		close(w.FiChan)
 		close(w.DirChan)
 	}()
@@ -116,7 +115,7 @@ func (w *Walker) StartWalking() {
 	// at that point.
 	w.Tick = CreateTicker(500*time.Millisecond, w.Verbose)
 
-	P("Starting Stats Loop")
+	//P("Starting Stats Loop")
 	w.StatsLoop()
 }
 
@@ -127,7 +126,6 @@ func (w *Walker) StatsLoop() {
 			if !ok {
 				return
 			}
-			//P("  read file channel " + fi.Name())
 			w.Stats.Update(fi)
 		case path, ok := <-w.DirChan:
 			if !ok {
@@ -144,8 +142,7 @@ func (w *Walker) StatsLoop() {
 			if !ok {
 				w.Warn("The ticker is dead")
 			}
-			fmt.Println(w.Stats.String())
+			fmt.Printf("%s\n", w.Stats.String())
 		}
-		//fmt.Printf("%+v", w.Stats)
 	}
 }

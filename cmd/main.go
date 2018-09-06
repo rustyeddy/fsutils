@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"os"
 
 	"github.com/rustyeddy/fsutils"
@@ -39,11 +38,15 @@ func main() {
 
 	// Start reading messages
 	go walker.ReadMessages(os.Stderr)
-	walker.StartWalking()
-	fmt.Println(walker.String())
+	switch *action {
+	case "scan":
+		walker.StartWalking()
+	default:
+		log.Fatalf("action expected one of (scan|???) got (%s)\n", *action)
+	}
 }
 
-// Much of this can be in the library
+// Move this to fsutils
 func setupLogerr() (l *fsutils.Logerr) {
 	l = fsutils.NewLogerr()
 	if *logout != "stdout" {
@@ -63,10 +66,12 @@ func setupLogerr() (l *fsutils.Logerr) {
 		log.Errorf("expected format (json|text) got (%s) ", *format)
 		l.Formatter = &log.TextFormatter{}
 	}
+
 	lvl, err := log.ParseLevel(*loglevel)
 	if err != nil {
 		lvl = log.WarnLevel
 	}
+
 	l.SetLevel(lvl)
 	if *nocolors {
 		//l.DisableColors = true
